@@ -1,0 +1,11 @@
+accelerate==1.13.0
+numpy==2.4.4
+optuna==4.8.0
+pandas==3.0.2
+python-dotenv==1.2.2
+scikit-learn==1.8.0
+torch==2.11.0
+torchvision==0.26.0
+tqdm==4.67.3
+transformers==5.8.0
+Unidecode==1.4.0
