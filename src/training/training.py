@@ -162,7 +162,7 @@ def train(
     # =================================================================
     # Training dan Evaluasi
     # =================================================================
-    model_output_dir = os.path.join(config.OUTPUT_DIR, "best_model")
+    model_output_dir = os.path.join(config.OUTPUT_DIR, "best_model", 'context' if bert_dataset_class == YouTubeSpamDataset else 'base')
     train_eval_result, _ = fit_model(
         model=model,
         train_loader=train_loader,
