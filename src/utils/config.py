@@ -71,6 +71,9 @@ class Config:
     # --- Data Split ---
     RANDOM_SEED = get_env('RANDOM_SEED', int)
 
+    # --- Augmentation ---
+    AUGMENTATION_REPLACEMENT_RATIO = get_env('AUGMENTATION_REPLACEMENT_RATIO', float)
+
     # --- Output ---
     # Direktori untuk menyimpan model yang sudah di-fine-tune
     OUTPUT_DIR = get_env('OUTPUT_DIR')

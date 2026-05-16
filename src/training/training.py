@@ -17,7 +17,8 @@ from data import (
     gss_split, 
     log_split_info, 
     YouTubeSpamDataset, 
-    YouTubeSpamDatasetBaseline)
+    YouTubeSpamDatasetBaseline,
+    augment_train_data)
 from models import initialize_model, create_dataloader
 from .fit_model import fit_model
 from evaluation import evaluate
@@ -111,6 +112,19 @@ def train(
             group_col=GROUP_COL,
             random_state=config.RANDOM_SEED
         )
+    )
+
+    # =========================================================================
+    # 3b. Data Augmentation — Random Replacement Synonym
+    # =========================================================================
+    # Augmentasi hanya diterapkan pada df_train untuk menghindari data leakage.
+    # Target augmentasi:
+    #   1. Data dengan language='id' dan label=1 (spam Bahasa Indonesia)
+    #   2. Data dengan language='en' (semua label Bahasa Inggris)
+    df_train = augment_train_data(
+        df_train,
+        replacement_ratio=config.AUGMENTATION_REPLACEMENT_RATIO,
+        random_state=config.RANDOM_SEED,
     )
 
     # Log informasi distribusi split dan cek data leakage antar split
