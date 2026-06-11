@@ -13,8 +13,8 @@ def train_one_epoch(
         optimizer: AdamW,
         scheduler,
         accelerator: Accelerator,
-        class_weights: torch.Tensor,
         epoch: int,
+        class_weights: torch.Tensor | None = None,
     ) -> float:
     """
     Args:
@@ -35,9 +35,12 @@ def train_one_epoch(
     jumlah_batch = 0
 
     # Loss function dengan class weights untuk handling class imbalance
-    loss_fn = torch.nn.CrossEntropyLoss(
-        weight=class_weights.to(accelerator.device)
-    )
+    if class_weights is not None:
+        loss_fn = torch.nn.CrossEntropyLoss(
+            weight=class_weights.to(accelerator.device)
+        )
+    else:
+        loss_fn = torch.nn.CrossEntropyLoss()
 
     # Progress bar hanya ditampilkan di proses utama (menghindari duplikasi di multi-GPU)
     progress_bar = tqdm(

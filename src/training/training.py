@@ -157,7 +157,8 @@ def train(
     logger.info(f"  Total parameter trainable: {total_params:,}")
 
     # Hitung class weights dari data training untuk menangani ketidakseimbangan kelas
-    class_weights = compute_class_weights(df_train["label"].to_numpy())
+    # class_weights = compute_class_weights(df_train["label"].to_numpy())
+    class_weights = None
 
     # =================================================================
     # Training dan Evaluasi
@@ -191,7 +192,6 @@ def train(
         model=best_model,
         dataloader=test_loader,
         accelerator=accelerator,
-        class_weights=class_weights,
         deskripsi="Test Final Model"
     )
 

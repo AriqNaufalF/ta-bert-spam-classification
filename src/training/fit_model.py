@@ -20,8 +20,8 @@ def fit_model(
         tokenizer: BertTokenizer,
         accelerator: Accelerator,
         config: Config,
-        class_weights: torch.Tensor,
         output_dir: str,
+        class_weights: torch.Tensor | None = None,
         save_model: bool = True,
         trial: Trial | None = None,
     ) -> tuple[list[dict[str, int | float]], float]:
