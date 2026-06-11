@@ -191,7 +191,6 @@ def train(
         model=best_model,
         dataloader=test_loader,
         accelerator=accelerator,
-        class_weights=class_weights,
         deskripsi="Test Final Model"
     )
 

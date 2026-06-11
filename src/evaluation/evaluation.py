@@ -17,14 +17,14 @@ def evaluate(
         model: BertForSequenceClassification,
         dataloader: DataLoader,
         accelerator: Accelerator,
-        class_weights: torch.Tensor,
+        class_weights: torch.Tensor | None = None,
         deskripsi: str = "Evaluasi",
     ) -> dict:
     """
     Args:
         model: Model BERT yang akan dievaluasi
         dataloader: DataLoader untuk data evaluasi (validation/test)
-        device: Device target (cuda/cpu)
+        accelerator: Accelerator instance untuk multi-GPU support
         class_weights: Bobot per kelas untuk loss function
         deskripsi: Label untuk progress bar (misalnya "Validasi" atau "Test")
 
@@ -48,10 +48,13 @@ def evaluate(
     all_preds = []
     all_labels = []
     all_probs = []
-
-    loss_fn = torch.nn.CrossEntropyLoss(
-        weight=class_weights.to(accelerator.device)
-    )
+    
+    if class_weights is not None:
+        loss_fn = torch.nn.CrossEntropyLoss(
+            weight=class_weights.to(accelerator.device)
+        )
+    else:
+        loss_fn = torch.nn.CrossEntropyLoss()
 
     progress_bar = tqdm(
         dataloader, 
