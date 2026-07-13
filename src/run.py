@@ -1,12 +1,15 @@
 import argparse
 from utils import Config
 from data import YouTubeSpamDatasetBaseline, YouTubeSpamDataset
-from training import train, parameter_tuning
+from training import train, train_logo_cv, parameter_tuning
 
 def handle_train(args):
     config = Config()
     dataset_class = YouTubeSpamDatasetBaseline if args.baseline else YouTubeSpamDataset
-    train(config, args.dataset, dataset_class)
+    if args.cv:
+        train_logo_cv(config, args.dataset, dataset_class)
+    else:
+        train(config, args.dataset, dataset_class)
 
 def handle_tune(args):
     config = Config()
@@ -35,6 +38,11 @@ def main():
 
     # Subparser for training
     train_parser = subparsers.add_parser("train", parents=[parent_parser], help="Mulai training model BERT untuk klasifikasi spam")
+    train_parser.add_argument(
+        '--cv',
+        action='store_true',
+        help="Gunakan Leave-One-Group-Out Cross-Validation (LOGO-CV) untuk evaluasi"
+    )
     train_parser.set_defaults(func=handle_train)
 
     # Subparser for hyperparameter tuning
