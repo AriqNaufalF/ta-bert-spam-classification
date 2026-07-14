@@ -1,13 +1,13 @@
 import argparse
 from utils import Config
 from data import YouTubeSpamDatasetBaseline, YouTubeSpamDataset
-from training import train, train_logo_cv, parameter_tuning
+from training import train, train_gss_cv, parameter_tuning
 
 def handle_train(args):
     config = Config()
     dataset_class = YouTubeSpamDatasetBaseline if args.baseline else YouTubeSpamDataset
     if args.cv:
-        train_logo_cv(config, args.dataset, dataset_class)
+        train_gss_cv(config, args.dataset, dataset_class)
     else:
         train(config, args.dataset, dataset_class)
 

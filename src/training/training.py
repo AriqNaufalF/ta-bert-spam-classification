@@ -15,8 +15,8 @@ from data import (
     load_en_dataset, 
     load_id_dataset, 
     gss_split, 
+    group_kfold_split,
     log_split_info, 
-    logo_split,
     log_cv_split_info,
     YouTubeSpamDataset, 
     YouTubeSpamDatasetBaseline)
@@ -407,16 +407,16 @@ def train(
 
 
 # =============================================================================
-# Leave-One-Group-Out Cross-Validation (LOGO-CV)
+# Group Shuffle Split Cross-Validation (GSS-CV)
 # =============================================================================
-def train_logo_cv(
+def train_gss_cv(
         config: Config,
         dataset: Literal["all", "id", "en"] = "all",
         bert_dataset_class: Type[YouTubeSpamDataset | YouTubeSpamDatasetBaseline] = YouTubeSpamDataset
     ):
     """
-    Leave-One-Group-Out Cross-Validation.
-    Setiap grup unik (video_title) dijadikan test set satu kali.
+    Group Shuffle Split Cross-Validation.
+    Membagi dataset menjadi 5 fold menggunakan GroupShuffleSplit (berdasarkan video_title).
     Model di-inisialisasi ulang dari awal untuk setiap fold.
     Hanya menyimpan metrik evaluasi (tidak menyimpan model).
 
@@ -474,10 +474,10 @@ def train_logo_cv(
     tokenizer.add_tokens(CUSTOM_SPECIAL_TOKENS)
 
     # =========================================================================
-    # 3. Leave-One-Group-Out Cross-Validation
+    # 3. Group Shuffle Split Cross-Validation
     # =========================================================================
     GROUP_COL = 'video_title'
-    n_groups = df[GROUP_COL].nunique()
+    n_splits = config.N_SPLITS
 
     # Buat direktori output (hanya di main process)
     cv_result_path = os.path.join(
@@ -489,7 +489,7 @@ def train_logo_cv(
         os.makedirs(cv_result_path, exist_ok=True)
 
     logger.info("=" * 60)
-    logger.info(f"MULAI LOGO-CV ({n_groups} fold)")
+    logger.info(f"MULAI GSS-CV ({n_splits} fold)")
     logger.info("=" * 60)
 
     # List untuk menyimpan hasil per fold
@@ -498,12 +498,13 @@ def train_logo_cv(
     all_fold_classification_reports = []
     all_fold_ablation_test_metrics = []
     all_fold_ablation_classification_reports = []
-    all_fold_ablation_confusion_matrices = []
-    all_fold_confusion_matrices = []
 
-    for df_train_val, df_test, fold, group_name in logo_split(df, GROUP_COL):
+    for fold, (df_train_val, df_test) in enumerate(group_kfold_split(df, n_splits=n_splits, group_col=GROUP_COL), start=1):
+        # Identifikasi grup yang dijadikan test set pada fold ini
+        test_groups = sorted(df_test[GROUP_COL].unique().tolist())
+        group_name = ", ".join(str(g) for g in test_groups)
         logger.info("=" * 60)
-        logger.info(f"FOLD {fold}/{n_groups} — Held-out group: '{group_name}'")
+        logger.info(f"FOLD {fold}/{n_splits} — Held-out group(s): '{group_name}'")
         logger.info("=" * 60)
 
         # =================================================================
@@ -515,39 +516,45 @@ def train_logo_cv(
                 n_splits=1,
                 test_size=0.15,
                 group_col=GROUP_COL,
-                random_state=config.RANDOM_SEED
+                random_state=config.RANDOM_SEED + fold
             )
         )
 
         # Log informasi split
         log_cv_split_info(df, df_train, df_val, df_test, fold, group_name)
 
-        # Inisiasi test ablation set
-        df_test_ablation = df_test.copy()
-
-        # Mengambil list unik data context dari df_train
-        context_list = df_train[['video_title', 'video_description']].drop_duplicates()
-
-        logger.info(f"  Jumlah data context unik di train set: {len(context_list)}")
-
-        # Menukar secara acak salah satu context di context_list untuk setiap baris di df_test_ablation
-        sampled_contexts = context_list.sample(
-            n=len(df_test_ablation), replace=True, random_state=config.RANDOM_SEED
-        ).reset_index(drop=True)
-        df_test_ablation = df_test_ablation.reset_index(drop=True)
-        df_test_ablation['video_title'] = sampled_contexts['video_title'].values
-        df_test_ablation['video_description'] = sampled_contexts['video_description'].values
-
-        # Log contoh satu komentar sebelum dan sesudah pertukaran context di test ablation set
-        logger.info(f"  Contoh pertukaran context di test ablation set:")
-        logger.info(f"    Original context: {df_test.iloc[0]['video_title']} | {df_test.iloc[0]['comment']}")
-        logger.info(f"    Ablation context: {df_test_ablation.iloc[0]['video_title']} | {df_test_ablation.iloc[0]['comment']}")
-
         # Buat data loaders
         train_loader = create_dataloader(df_train, tokenizer, config, dataset_class=bert_dataset_class, shuffle=True)
         val_loader = create_dataloader(df_val, tokenizer, config, dataset_class=bert_dataset_class, shuffle=False)
         test_loader = create_dataloader(df_test, tokenizer, config, dataset_class=bert_dataset_class, shuffle=False)
-        test_ablation_loader = create_dataloader(df_test_ablation, tokenizer, config, dataset_class=bert_dataset_class, shuffle=False)
+
+        df_test_ablation = None
+        test_ablation_loader = None
+        if bert_dataset_class == YouTubeSpamDataset:
+            # Inisiasi test ablation set
+            df_test_ablation = df_test.copy()
+
+            # Mengambil list unik data context dari df_train
+            context_list = df_train[['video_title', 'video_description']].drop_duplicates()
+
+            logger.info(f"  Jumlah data context unik di train set: {len(context_list)}")
+
+            # Menukar secara acak salah satu context di context_list untuk setiap baris di df_test_ablation
+            sampled_contexts = context_list.sample(
+                n=len(df_test_ablation), replace=True, random_state=config.RANDOM_SEED
+            ).reset_index(drop=True)
+            df_test_ablation = df_test_ablation.reset_index(drop=True)
+            df_test_ablation['video_title'] = sampled_contexts['video_title'].values
+            df_test_ablation['video_description'] = sampled_contexts['video_description'].values
+
+            # Log contoh satu komentar sebelum dan sesudah pertukaran context di test ablation set
+            logger.info(f"  Contoh pertukaran context di test ablation set:")
+            logger.info(f"    Original context: {df_test.iloc[0]['video_title']} | {df_test.iloc[0]['comment']}")
+            logger.info(f"    Ablation context: {df_test_ablation.iloc[0]['video_title']} | {df_test_ablation.iloc[0]['comment']}")
+
+            test_ablation_loader = create_dataloader(df_test_ablation, tokenizer, config, dataset_class=bert_dataset_class, shuffle=False)
+
+
         # =================================================================
         # 3b. Inisialisasi model BERT fresh untuk setiap fold
         # =================================================================
@@ -709,11 +716,6 @@ def train_logo_cv(
                 "held_out_group": group_name,
                 "report": ablation_report_dict,
             })
-            all_fold_ablation_confusion_matrices.append({
-                "fold": fold,
-                "held_out_group": group_name,
-                "confusion_matrix": ablation_cm,
-            })
 
         # Simpan metrik test per fold
         fold_test_result = {
@@ -728,23 +730,20 @@ def train_logo_cv(
         }
         all_fold_test_metrics.append(fold_test_result)
 
-        # Simpan classification report dan confusion matrix per fold
+        # Simpan classification report per fold
         all_fold_classification_reports.append({
             "fold": fold,
             "held_out_group": group_name,
             "report": report_dict,
         })
-        all_fold_confusion_matrices.append({
-            "fold": fold,
-            "held_out_group": group_name,
-            "confusion_matrix": cm,
-        })
 
         # =================================================================
         # 3e. Cleanup memori GPU
         # =================================================================
-        del model, best_model, train_loader, val_loader, test_loader, test_ablation_loader
-        del df_train, df_val, df_train_val, df_test_ablation
+        if df_test_ablation is not None and test_ablation_loader is not None:
+            del df_test_ablation, test_ablation_loader
+        del model, best_model, train_loader, val_loader, test_loader
+        del df_train, df_val, df_train_val
         accelerator.free_memory()
         gc.collect()
         if accelerator.device.type == "cuda":
@@ -759,7 +758,7 @@ def train_logo_cv(
     # 4. Agregasi hasil CV
     # =========================================================================
     logger.info("=" * 60)
-    logger.info("RINGKASAN LOGO-CV")
+    logger.info("RINGKASAN GSS-CV")
     logger.info("=" * 60)
 
     per_fold_df = pd.DataFrame(all_fold_test_metrics)
@@ -782,7 +781,7 @@ def train_logo_cv(
     ablation_summary = None
     if len(all_fold_ablation_test_metrics) > 0:
         logger.info("\n" + "-" * 40)
-        logger.info("RINGKASAN ABLATION LOGO-CV")
+        logger.info("RINGKASAN ABLATION GSS-CV")
         logger.info("-" * 40)
 
         ablation_per_fold_df = pd.DataFrame(all_fold_ablation_test_metrics)
@@ -861,4 +860,4 @@ def train_logo_cv(
 
             logger.info(f"Ablation classification reports disimpan ke: {cv_result_path}")
 
-    logger.info("\n🎉 LOGO-CV selesai!")
+    logger.info("\n🎉 GSS-CV selesai!")

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import GroupShuffleSplit, LeaveOneGroupOut
+from sklearn.model_selection import GroupShuffleSplit, GroupKFold, LeaveOneGroupOut
 from typing import Iterator
 from utils import logger
 
@@ -29,6 +29,35 @@ def gss_split(
         val_set = df.iloc[val_idx].reset_index(drop=True)
 
         yield train_set, val_set
+
+def group_kfold_split(
+    df: pd.DataFrame,
+    n_splits: int,
+    group_col: str,
+) -> Iterator[tuple[pd.DataFrame, pd.DataFrame]]:
+    """
+    Group K-Fold Cross-Validation split.
+    Membagi grup ke dalam n_splits fold secara deterministik.
+    Setiap fold menggunakan grup yang berbeda sebagai test set,
+    sehingga data berotasi di setiap iterasi fold dan setiap grup
+    muncul di test set tepat satu kali.
+
+    Args:
+        df: DataFrame berisi data
+        n_splits: Jumlah fold (harus <= jumlah grup unik)
+        group_col: Nama kolom group
+
+    Returns:
+        Iterator menghasilkan tuple berisi (train_set, test_set)
+    """
+    gkf = GroupKFold(n_splits=n_splits)
+    groups = df[group_col]
+
+    for train_idx, test_idx in gkf.split(df, groups=groups):
+        train_set = df.iloc[train_idx].reset_index(drop=True)
+        test_set = df.iloc[test_idx].reset_index(drop=True)
+
+        yield train_set, test_set
 
 def log_split_info(
     df: pd.DataFrame,
@@ -80,39 +109,6 @@ def log_split_info(
             f"  {nama} — Spam: {distribusi.get(1, 0)*100:.1f}%, "
             f"Ham: {distribusi.get(0, 0)*100:.1f}%"
         )
-
-def logo_split(
-    df: pd.DataFrame,
-    group_col: str,
-) -> Iterator[tuple[pd.DataFrame, pd.DataFrame, int, str]]:
-    """
-    Leave-One-Group-Out split: setiap grup unik dijadikan test set sekali.
-
-    Args:
-        df: DataFrame berisi data
-        group_col: Nama kolom group (misalnya 'video_title')
-
-    Yields:
-        (df_train_val, df_test, fold_index, group_name)
-        - df_train_val: Data untuk training + validasi
-        - df_test: Data test (satu grup)
-        - fold_index: Indeks fold (dimulai dari 1)
-        - group_name: Nama grup yang dijadikan test set
-    """
-    logo = LeaveOneGroupOut()
-    groups = df[group_col]
-    unique_groups = groups.unique()
-    n_groups = len(unique_groups)
-
-    logger.info(f"  Leave-One-Group-Out CV: {n_groups} fold (grup: {sorted(unique_groups)})")
-
-    for fold_index, (train_val_idx, test_idx) in enumerate(logo.split(df, groups=groups), start=1):
-        df_train_val = df.iloc[train_val_idx].reset_index(drop=True)
-        df_test = df.iloc[test_idx].reset_index(drop=True)
-        group_name = df_test[group_col].iloc[0]
-
-        yield df_train_val, df_test, fold_index, group_name
-
 
 def log_cv_split_info(
     df: pd.DataFrame,

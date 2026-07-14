@@ -1,6 +1,6 @@
 from .preprocessing import preprocess_text
 from .loader import load_id_dataset, load_en_dataset, load_all_datasets
-from .split_data import gss_split, log_split_info, logo_split, log_cv_split_info
+from .split_data import gss_split, group_kfold_split, log_split_info, log_cv_split_info
 from .dataset import YouTubeSpamDataset, YouTubeSpamDatasetBaseline
 
-__all__ = ["preprocess_text", "load_id_dataset", "load_en_dataset", "load_all_datasets", "gss_split", "log_split_info", "logo_split", "log_cv_split_info", "YouTubeSpamDataset", "YouTubeSpamDatasetBaseline"]
+__all__ = ["preprocess_text", "load_id_dataset", "load_en_dataset", "load_all_datasets", "gss_split", "group_kfold_split", "log_split_info", "log_cv_split_info", "YouTubeSpamDataset", "YouTubeSpamDatasetBaseline"]

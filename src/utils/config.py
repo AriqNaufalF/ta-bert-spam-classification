@@ -70,6 +70,7 @@ class Config:
 
     # --- Data Split ---
     RANDOM_SEED = get_env('RANDOM_SEED', int)
+    N_SPLITS = get_env('N_SPLITS', int)
 
     # --- Output ---
     # Direktori untuk menyimpan model yang sudah di-fine-tune
